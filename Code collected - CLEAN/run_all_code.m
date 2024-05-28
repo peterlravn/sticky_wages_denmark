@@ -7,98 +7,67 @@ warning off all
 
 
 %% Simulate sign restriction space for interest rate shock
-close all;
+
 p_inf = [];
 w_inf = [];
 gdp = [];
 n = []
 
-for i=1:1000;
+lbound = [    0.5     0.5     0.01       0.01    0.01   1.01     0.01   0.1      0.1 ];      
+ubound = [     5       3      0.99       0.99    0.99     3      0.5     9       9   ];  
 
-    % try;
-        rng("shuffle")
-        
-        lbound = [    0.5     0.5      0          0     0.01   1.01    0.01   0.1      0.1 ];      
-        ubound = [     5       3      0.99       0.99   0.99     3      0.5     9       9   ];
+% Number of points in the grid for each variable (adjust as needed)
+nPoints = 2;
 
-        
-        siggma0 = lbound(1) + (ubound(1) - lbound(1)) * rand();
-        varphi0 = lbound(2) + (ubound(2) - lbound(2)) * rand();
-        theta_p0 = lbound(3) + (ubound(3) - lbound(3)) * rand();
-        theta_w0 = lbound(4) + (ubound(4) - lbound(4)) * rand();
-        rho_i0 = lbound(5) + (ubound(5) - lbound(5)) * rand();
-        phi_pi0 = lbound(6) + (ubound(6) - lbound(6)) * rand();
-        phi_y0 = lbound(7) + (ubound(7) - lbound(7)) * rand();
-        epsilon_p0 = lbound(8) + (ubound(8) - lbound(8)) * rand();
-        epsilon_w0 = lbound(9) + (ubound(9) - lbound(9)) * rand();
-        
-        
-        
-        paramvec = [siggma0  varphi0 theta_p0 theta_w0 rho_i0 phi_pi0 phi_y0 epsilon_p0 epsilon_w0];
-        
-        save('paramvec')
-        
-        dynare sticky_wages_int;
-        
-        load('irfs_model.mat');
-        
-        p_inf = [p_inf, pi_p_eps_i];
-        w_inf = [w_inf, pi_w_eps_i];
-        gdp = [gdp, y_eps_i];
-        n = [n, n_eps_i];
-    % catch;
-    %     %do nothing
-    % end;
+% Generate the points for each variable
+points = arrayfun(@(low, up) linspace(low, up, nPoints), lbound, ubound, 'UniformOutput', false);
+
+% Create the grid
+[grid{1:numel(lbound)}] = ndgrid(points{:});
+
+% Combine the grid points into a matrix with each row representing a grid point
+gridMatrix = cell2mat(cellfun(@(x) x(:), grid, 'UniformOutput', false));
+
+
+for i=1:length(gridMatrix);
+
+
+    paramvec = gridMatrix(i,1:end);
+    
+    save('paramvec')
+    
+    dynare sticky_wages_int;
+    
+    load('irfs_model.mat');
+    
+    if pi_p_eps_i(2) < 0;
+        p_inf = [p_inf; 1];
+    else;
+        p_inf = [p_inf; 0];
+    end;
+    if pi_w_eps_i(2) < 0;
+        w_inf = [w_inf; 1];
+    else;
+        w_inf = [w_inf; 0];
+    end;
+    if y_eps_i(2) < 0;
+        gdp = [gdp; 1];
+    else;
+        gdp = [gdp; 0];
+    end;
+    if n_eps_i(2) < 0;
+        n = [n; 1];
+    else;
+        n = [n; 0];
+    end;
 end;
 
-p_inf_max = max(p_inf, [], 2);
-p_inf_min = min(p_inf, [], 2);
-w_inf_max = max(w_inf, [], 2);
-w_inf_min = min(w_inf, [], 2);
-gdp_max = max(gdp, [], 2);
-gdp_min = min(gdp, [], 2);
-n_max = max(n, [], 2);
-n_min = min(n, [], 2);
+int_shock_simul = {"Positive response", 100-mean(p_inf)*100, 100-mean(w_inf)*100, 100-mean(gdp)*100, 100-mean(n)*100;
+                    "Negative response", mean(p_inf)*100, mean(w_inf)*100, mean(gdp)*100, mean(n)*100}
+
+table2latex(int_shock_simul);
 
 
-horizon = 20;
-x = 1:horizon;
-
-figure('Position', [100, 100, 800, 600]);
-
-subplot(2, 2, 1);
-fill([x fliplr(x)], [p_inf_min' fliplr(p_inf_max')], [0.8 0.8 0.8], 'EdgeColor', 'none'); % Gray color fill
-hold on;
-plot(p_inf_min, 'black');
-plot(p_inf_max, 'black');
-% ylim([-10 2]);
-hold off;
-
-subplot(2, 2, 2);
-fill([x fliplr(x)], [w_inf_min' fliplr(w_inf_max')], [0.8 0.8 0.8], 'EdgeColor', 'none'); % Gray color fill
-hold on;
-plot(w_inf_min, 'black');
-plot(w_inf_max, 'black');
-% ylim([-12 2]);
-hold off;
-
-subplot(2, 2, 3);
-fill([x fliplr(x)], [gdp_min' fliplr(gdp_max')], [0.8 0.8 0.8], 'EdgeColor', 'none'); % Gray color fill
-hold on;
-plot(gdp_min, 'black');
-plot(gdp_max, 'black');
-% ylim([-6 2]);
-hold off;
-
-subplot(2, 2, 4);
-fill([x fliplr(x)], [n_min' fliplr(n_max')], [0.8 0.8 0.8], 'EdgeColor', 'none'); % Gray color fill
-hold on;
-plot(n_min, 'black');
-plot(n_max, 'black');
-% ylim([-8 2]);
-hold off;
-
-saveas(gcf,'simul_sign_int.png')
 
 %% Simulate sign restriction space for productivity shock
 p_inf = [];
@@ -106,26 +75,24 @@ w_inf = [];
 gdp = [];
 n = []
 
-for i=1:1;
+lbound = [    0.5     0.5     0.01       0.01    0.01   1.01     0.01   0.1      0.1 ];      
+ubound = [     5       3      0.99       0.99    0.99     3      0.5     9       9   ];  
 
-    rng("shuffle")
-    
-    lbound = [    0.5     0.5      0          0     0.01   1.01    0.01   0.1      0.1 ];      
-    ubound = [     5       3      0.99       0.99   0.99     3      0.5     9       9   ];  
-    
-    siggma0 = lbound(1) + (ubound(1) - lbound(1)) * rand();
-    varphi0 = lbound(2) + (ubound(2) - lbound(2)) * rand();
-    theta_p0 = lbound(3) + (ubound(3) - lbound(3)) * rand();
-    theta_w0 = lbound(4) + (ubound(4) - lbound(4)) * rand();
-    rho_a0 = lbound(5) + (ubound(5) - lbound(5)) * rand();        
-    phi_pi0 = lbound(6) + (ubound(6) - lbound(6)) * rand();
-    phi_y0 = lbound(7) + (ubound(7) - lbound(7)) * rand();
-    epsilon_p0 = lbound(8) + (ubound(8) - lbound(8)) * rand();
-    epsilon_w0 = lbound(9) + (ubound(9) - lbound(9)) * rand();
-    
-    
-    
-    paramvec = [siggma0  varphi0 theta_p0 theta_w0 rho_a0 phi_pi0 phi_y0 epsilon_p0 epsilon_w0];
+% Number of points in the grid for each variable (adjust as needed)
+nPoints = 2;
+
+% Generate the points for each variable
+points = arrayfun(@(low, up) linspace(low, up, nPoints), lbound, ubound, 'UniformOutput', false);
+
+% Create the grid
+[grid{1:numel(lbound)}] = ndgrid(points{:});
+
+% Combine the grid points into a matrix with each row representing a grid point
+gridMatrix = cell2mat(cellfun(@(x) x(:), grid, 'UniformOutput', false));
+
+for i=1:length(gridMatrix);
+
+    paramvec = gridMatrix(i,1:end);
     
     save('paramvec')
     
@@ -133,55 +100,35 @@ for i=1:1;
     
     load('irfs_model.mat');
     
-    p_inf = [p_inf, pi_p_eps_a];
-    w_inf = [w_inf, pi_w_eps_a];
-    gdp = [gdp, y_eps_a];
-    n = [n, n_eps_a];
+    if pi_p_eps_a(1) < 0;
+        p_inf = [p_inf; 1];
+    else;
+        p_inf = [p_inf; 0];
+    end;
+    if pi_w_eps_a(1) < 0;
+        w_inf = [w_inf; 1];
+    else;
+        w_inf = [w_inf; 0];
+    end;
+    if y_eps_a(1) < 0;
+        gdp = [gdp; 1];
+    else;
+        gdp = [gdp; 0];
+    end;
+    if n_eps_a(1) < 0;
+        n = [n; 1];
+    else;
+        n = [n; 0];
+    end;
 end;
 
-p_inf_max = max(p_inf, [], 2);
-p_inf_min = min(p_inf, [], 2);
-w_inf_max = max(w_inf, [], 2);
-w_inf_min = min(w_inf, [], 2);
-gdp_max = max(gdp, [], 2);
-gdp_min = min(gdp, [], 2);
-n_max = max(n, [], 2);
-n_min = min(n, [], 2);
 
-horizon = 20;
-x = 1:horizon;
 
-figure('Position', [100, 100, 800, 600]);
+tech_shock_simul = {"Positive response", 100-mean(p_inf)*100, 100-mean(w_inf)*100, 100-mean(gdp)*100, 100-mean(n)*100;
+                    "Negative response", mean(p_inf)*100, mean(w_inf)*100, mean(gdp)*100, mean(n)*100}
 
-subplot(2, 2, 1);
-fill([x fliplr(x)], [p_inf_min' fliplr(p_inf_max')], [0.8 0.8 0.8], 'EdgeColor', 'none'); % Gray color fill
-hold on;
-plot(p_inf_min, 'black');
-plot(p_inf_max, 'black');
-hold off;
+table2latex(tech_shock_simul);
 
-subplot(2, 2, 2);
-fill([x fliplr(x)], [w_inf_min' fliplr(w_inf_max')], [0.8 0.8 0.8], 'EdgeColor', 'none'); % Gray color fill
-hold on;
-plot(w_inf_min, 'black');
-plot(w_inf_max, 'black');
-hold off;
-
-subplot(2, 2, 3);
-fill([x fliplr(x)], [gdp_min' fliplr(gdp_max')], [0.8 0.8 0.8], 'EdgeColor', 'none'); % Gray color fill
-hold on;
-plot(gdp_min, 'black');
-plot(gdp_max, 'black');
-hold off;
-
-subplot(2, 2, 4);
-fill([x fliplr(x)], [n_min' fliplr(n_max')], [0.8 0.8 0.8], 'EdgeColor', 'none'); % Gray color fill
-hold on;
-plot(n_min, 'black');
-plot(n_max, 'black');
-hold off;
-
-saveas(gcf,'simul_sign_tech.png')
 
 %% DATA
 % =======================================================================
@@ -258,6 +205,13 @@ companion = comp(Beta,p);
 max(abs(eig(companion)))
 
 [results, lm_table]=VARLMtest(lmlags,1,0,X,p);
+table2latex(lm_table);
+
+[test,march_table]=march1(res,p,6);
+table2latex(march_table);
+
+[norm,multnorm_table]=multnorm(res);
+table2latex(multnorm_table);
 
 %% VAR ESTIMATION
 % =======================================================================
@@ -375,8 +329,8 @@ dynare sticky_wages_int;
 initparams = paramvec;  
 
 % Declare upper and lower bounds for these parameters 
-lbound = [    0.5     0.5      0          0     0.01   1.01    0.01   0.1      0.1 ];      
-ubound = [     5       3      0.99       0.99   0.99     3      0.5     9       9   ];  
+lbound = [    0.5     0.5     0.01       0.01    0.01   1.20     0.01   0.1      0.1 ];      
+ubound = [     5       3      0.99       0.99    0.99     3      0.5     9       9   ];   
 
 % Initiate minimization 
 [estimates,fval,exitflag,output] = fmincon(@Estim_int,initparams,[],[],[],[],lbound,ubound);
@@ -445,8 +399,8 @@ dynare sticky_wages_tech;
 initparams = paramvec;  
 
 % Declare upper and lower bounds for these parameters 
-lbound = [    0.5     0.5      0          0     0.01   1.01    0.01   0.1      0.1 ];      
-ubound = [     5       3      0.99       0.99   0.99     3      0.5     9       9   ];  
+lbound = [    0.5     0.5     0.01       0.01    0.01   1.20     0.01   0.1      0.1 ];      
+ubound = [     5       3      0.99       0.99    0.99     3      0.5     9       9   ];  
 
 % Initiate minimization 
 [estimates,fval,exitflag,output] = fmincon(@Estim_tech,initparams,[],[],[],[],lbound,ubound);
@@ -513,8 +467,8 @@ initparams = paramvec;
 
 
 % Declare upper and lower bounds for these parameters 
-lbound = [    0.5     0.5      0          0    0.01     0.01   1.01    0.01   0.1      0.1 ];      
-ubound = [     5       3      0.99       0.99  0.99     0.99     3      0.5     9       9   ];  
+lbound = [    0.5     0.5     0.01       0.01    0.01     0.01   1.20     0.01   0.1      0.1 ];      
+ubound = [     5       3      0.99       0.99    0.99     0.99     3      0.5     9       9   ];  
 
 
 % Initiate minimization 
@@ -598,8 +552,8 @@ saveas(gcf,'irf_tech_both.png')
 %% 
 
 
-% paramvec_int = load('paramvec_int')
-% paramvec_int = [round(paramvec_int.paramvec(1:4),2), "*", round(paramvec_int.paramvec(5:end),2)]
+paramvec_int = load('paramvec_int')
+paramvec_int = [round(paramvec_int.paramvec(1:4),2), "*", round(paramvec_int.paramvec(5:end),2)]
 
 paramvec_tech = load('paramvec_tech')
 paramvec_tech = [round(paramvec_tech.paramvec(1:5),2), "*", round(paramvec_tech.paramvec(6:end),2)]
@@ -611,8 +565,8 @@ paramvec_both = round(paramvec_both.paramvec,2)
 % paramvec_both = load('paramvec_both')
 
 
-lbound = [    0.5,     0.5,      0,          0,    0.01,     0.01,   1.01,    0.01,   0.1,      0.1 ];      
-ubound = [     5,       3,      0.99,       0.99,  0.99,     0.99,     3,      0.5,     9,       9   ];  
+lbound = [    0.5,     0.5,     0.01,       0.01,    0.01,     0.01,   1.20,    0.01,   0.1,      0.1 ];      
+ubound = [     5,       3,      0.99,       0.99,    0.99,     0.99,     3,      0.5,     9,       9   ];  
 
 paramvec_names = {'$\\sigma$'; '$\\varphi$'; '$\\theta_p$'; '$\\theta_w$'; '$\\rho_a$'; '$\\rho_i$'; '$\\phi_pi$'; '$\\phi_y$'; '$\\epsilon_p$'; '$\\epsilon_w$'}';
 
@@ -620,6 +574,3 @@ paramvec_names = {'$\\sigma$'; '$\\varphi$'; '$\\theta_p$'; '$\\theta_w$'; '$\\r
 compare_vec = [paramvec_names; num2cell(lbound); num2cell(ubound); num2cell(paramvec_int); num2cell(paramvec_tech); num2cell(paramvec_both)]';
 
 table2latex(compare_vec);
-
-%% 
-display("test_1_test")
